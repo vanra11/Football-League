@@ -1,3 +1,5 @@
+# European Super League
+
 Football if Super League happened
 
 
@@ -34,30 +36,22 @@ I even conducted an in-depth analysis of player statistics and team dynamics to 
 ```
 
 
+## Installation
+To try this code out, follow these steps:
 
-
-
-
-To run the program: 
-Clone the Repository: They will need to clone your GitHub repository to their local machine.
-
-
+1. Copy Code:
+```
 Copy code
-git clone https://github.com/your-username/fantasy-football-simulation.git
-Navigate to the Project Directory: Change into the project directory.
-
-
-Copy code
-cd fantasy-football-simulation
-Install Dependencies: If your project has dependencies, they will need to install them. Typically, these would be listed in a requirements.txt file or a similar configuration.
-
-
-Copy code
+git clone [https://github.com/your-username/fantasy-football-simulation.git](https://github.com/vanra11/If-Super-League-happened)
+```
+2. Install the required dependencies:
+```
 pip install -r requirements.txt
-Run the Simulation: Finally, they can execute the main Python script to run the simulation.
-
-Copy code
+```
+3. Run the application:
+```
 python Simulation.py
+```
 
 
 

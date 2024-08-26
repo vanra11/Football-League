@@ -42,22 +42,21 @@ I even conducted an in-depth analysis of player statistics and team dynamics to 
 To run the program: 
 Clone the Repository: They will need to clone your GitHub repository to their local machine.
 
-bash
+
 Copy code
 git clone https://github.com/your-username/fantasy-football-simulation.git
 Navigate to the Project Directory: Change into the project directory.
 
-bash
+
 Copy code
 cd fantasy-football-simulation
 Install Dependencies: If your project has dependencies, they will need to install them. Typically, these would be listed in a requirements.txt file or a similar configuration.
 
-bash
+
 Copy code
 pip install -r requirements.txt
 Run the Simulation: Finally, they can execute the main Python script to run the simulation.
 
-bash
 Copy code
 python main.py
 

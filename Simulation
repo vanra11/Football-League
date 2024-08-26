@@ -61,9 +61,9 @@ class Team:
         self.matches_played += 1
     
     def calculate_additional_score(self):
-        K = 3
-        G = 2
-        M = 1
+        K = 1.5
+        G = 1.5
+        M = 0.5
         return (K * self.matches_won) + (G * self.total_goals_scored) - (M * self.total_goals_conceded)
 
     def normalize_points(self):
@@ -96,13 +96,13 @@ class League:
         self.teams = teams
     
     def simulate_season(self):
-        num_matches_per_team = 12
+        num_matches_per_team = 14
         all_matches = []
         for i in range(len(self.teams)):
             for j in range(i + 1, len(self.teams)):
                 team1 = self.teams[i]
                 team2 = self.teams[j]
-                # Schedule matches to ensure each team plays 12 matches
+                # Schedule matches to ensure each team plays 14 matches
                 while team1.matches_played < num_matches_per_team and team2.matches_played < num_matches_per_team:
                     all_matches.append((team1, team2))
                     team1.matches_played += 1
@@ -123,8 +123,11 @@ class League:
 def main():
     # Create players and teams
     teams = []
-    team_names = ["Man City", "Man Utd", "Arsenal", "Real Madrid", "Barcelona", 
-                  "Borussia Dortmund", "Bayern Munich", "AC Milan", "Inter Milan", "Juventus"]
+    team_names = [
+        "Manchester United", "Liverpool", "Manchester City", "Arsenal",
+        "Chelsea", "Tottenham Hotspur", "FC Barcelona", "Real Madrid",
+        "Atlético Madrid", "Inter Milan", "AC Milan", "Juventus"
+    ]
     
     for team_name in team_names:
         team = Team(team_name)
@@ -143,7 +146,8 @@ def main():
     # Get the winner
     winner = league.get_winner()
     if winner:
-        print(f"The winner is: {winner.name} with {winner.calculate_additional_score()} ovr\nTotal points scored: {winner.total_match_points} match points.")
+        print(f"The winner is: {winner.name} with {winner.calculate_additional_score()} ovr")
+        print(f"Total points scored: {winner.total_match_points} match points.")
         print(f"Goals Scored: {winner.total_goals_scored}, Goals Conceded: {winner.total_goals_conceded}")
         print(f"Matches Won: {winner.matches_won}, Matches Drawn: {winner.matches_drawn}, Matches Lost: {winner.matches_lost}")
     else:

@@ -1,5 +1,7 @@
 Football if Super League happened
 
+To run the execution:
+python main.py
 
 ```python
 Team and Player Management: 10 teams, each can have up to 15 players, are created in such a way that each player is assigned a position and earns points based on their performance.

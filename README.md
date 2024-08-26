@@ -38,7 +38,6 @@ I even conducted an in-depth analysis of player statistics and team dynamics to 
 
 
 
-```bash
 To run the program: 
 Clone the Repository: They will need to clone your GitHub repository to their local machine.
 
@@ -58,9 +57,9 @@ pip install -r requirements.txt
 Run the Simulation: Finally, they can execute the main Python script to run the simulation.
 
 Copy code
-python main.py
+python Simulation.py
 
 
 
 OR JUST COPY AND PASTE THE CODE IN YOUR PYTHON ENVIRONMENT XD
-```
+

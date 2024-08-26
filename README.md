@@ -1,6 +1,6 @@
-#Football if Superleague happened
+Football if Superleague happened
 
-#Features
+
 ```python
 Team and Player Management: 10 teams, each can have up to 15 players, are created in such a way that each player is assigned a position and earns points based on their performance.
 Match Simulation: Simulates matches between teams with randomized outcomes and player performances.

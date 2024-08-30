@@ -1,20 +1,40 @@
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Random;
+import java.util.stream.Collectors;
 
 class Player {
     private String name;
     private String position;
     private String team;
     private int points;
+    private int yellowCards;
+    private int redCards;
+    private int suspensionGames;
 
     public Player(String name, String position, String team) {
         this.name = name;
         this.position = position;
         this.team = team;
         this.points = 0;
+        this.yellowCards = 0;
+        this.redCards = 0;
+        this.suspensionGames = 0;
+    }
+
+    public int getPoints() {
+        return this.points;
+    }
+
+    public int getSuspensionGames() {
+        return this.suspensionGames;
+    }
+
+    public void setSuspensionGames(int suspensionGames) {
+        this.suspensionGames = suspensionGames;
     }
 
     public void updatePoints(int minutesPlayed, int goals) {
@@ -33,10 +53,24 @@ class Player {
         } else if (this.position.equals("Forward") && goals > 0) {
             this.points += 4;
         }
+
+        // Deduct points for cards
+        this.points -= this.yellowCards;  // -1 point for each yellow card
+        this.points -= (this.redCards * 2);  // -2 points for each red card
     }
 
-    public int getPoints() {
-        return this.points;
+    public void receiveCard(String cardType) {
+        if (cardType.equals("yellow")) {
+            if (this.yellowCards < 2) {  // A player can receive a max of 2 yellow cards in one game
+                this.yellowCards++;
+            }
+            if (this.yellowCards == 2) {  // 2 yellow cards lead to a suspension
+                this.suspensionGames += 1;
+            }
+        } else if (cardType.equals("red")) {
+            this.redCards++;
+            this.suspensionGames += 2;  // 1 red card leads to suspension for 2 games
+        }
     }
 }
 
@@ -51,6 +85,7 @@ class Team {
     private int totalMatchPoints;
     private int[] monthlyPoints;
     private int matchesPlayed;
+    private int totalCardsReceived;  // Make this private
 
     public Team(String name) {
         this.name = name;
@@ -63,28 +98,15 @@ class Team {
         this.totalMatchPoints = 0;
         this.monthlyPoints = new int[12];
         this.matchesPlayed = 0;
-    }
-
-    public void addPlayer(Player player) {
-        if (this.players.size() < 15) {
-            this.players.add(player);
-        }
-    }
-
-    public List<Player> getPlayers() {
-        return this.players;
-    }
-
-    public int getMatchesPlayed() {
-        return this.matchesPlayed;
-    }
-
-    public void setMatchesPlayed(int matchesPlayed) {
-        this.matchesPlayed = matchesPlayed;
+        this.totalCardsReceived = 0;
     }
 
     public String getName() {
         return this.name;
+    }
+
+    public List<Player> getPlayers() {
+        return this.players;
     }
 
     public int getTotalMatchPoints() {
@@ -111,6 +133,28 @@ class Team {
         return this.matchesLost;
     }
 
+    public int getMatchesPlayed() {
+        return this.matchesPlayed;
+    }
+
+    public void setMatchesPlayed(int matchesPlayed) {
+        this.matchesPlayed = matchesPlayed;
+    }
+
+    public int getTotalCardsReceived() {
+        return this.totalCardsReceived;
+    }
+
+    public void addPlayer(Player player) {
+        if (this.players.size() < 15) {
+            this.players.add(player);
+        }
+    }
+
+    public void incrementTotalCardsReceived(int count) {
+        this.totalCardsReceived += count;  // Method to modify totalCardsReceived
+    }
+
     public int calculateTotalPoints() {
         return this.players.stream().mapToInt(Player::getPoints).sum();
     }
@@ -118,6 +162,8 @@ class Team {
     public void addMatchResult(int goalsScored, int goalsConceded, int month) {
         this.totalGoalsScored += Math.min(goalsScored, 70);
         this.totalGoalsConceded += Math.min(goalsConceded, 30);
+        this.totalGoalsScored = Math.min(this.totalGoalsScored, 70);
+        this.totalGoalsConceded = Math.min(this.totalGoalsConceded, 30);
 
         if (goalsScored > goalsConceded) {
             this.matchesWon++;
@@ -133,15 +179,15 @@ class Team {
         this.matchesPlayed++;
     }
 
-    public double calculateAdditionalScore() {
-        double K = 3;
-        double G = 2;
-        double M = 1;
+    public int calculateAdditionalScore() {
+        int K = 3;
+        int G = 2;
+        int M = 1;
         return (K * this.matchesWon) + (G * this.totalGoalsScored) - (M * this.totalGoalsConceded);
     }
 
     public double normalizePoints() {
-        return (double) Arrays.stream(this.monthlyPoints).sum() / 12;
+        return Arrays.stream(this.monthlyPoints).average().orElse(0.0);
     }
 }
 
@@ -157,25 +203,58 @@ class Match {
     public void simulate() {
         Team team1 = this.teams.get(0);
         Team team2 = this.teams.get(1);
-
-        Random random = new Random();
-        int goalsTeam1 = random.nextInt(7);
-        int goalsTeam2 = random.nextInt(7);
+        int goalsTeam1 = new Random().nextInt(7);
+        int goalsTeam2 = new Random().nextInt(7);
 
         team1.addMatchResult(goalsTeam1, goalsTeam2, this.month);
         team2.addMatchResult(goalsTeam2, goalsTeam1, this.month);
 
+        // Select players for card assignment
+        List<Player> playersForCards = new ArrayList<>();
+        playersForCards.addAll(selectPlayersForCards(team1));
+        playersForCards.addAll(selectPlayersForCards(team2));
+        Collections.shuffle(playersForCards);
+
+        // Assign cards to selected players at a frequency of 1 card per 4 games
+        if (new Random().nextDouble() < (1.0 / 4)) {
+            for (Player player : playersForCards) {
+                String cardType = new Random().nextBoolean() ? "yellow" : "red";
+                player.receiveCard(cardType);
+                team1.incrementTotalCardsReceived(cardType.equals("yellow") ? 1 : 2);
+                team2.incrementTotalCardsReceived(cardType.equals("yellow") ? 1 : 2);
+            }
+        }
+
+        // Simulate performance for all players
         for (Player player : team1.getPlayers()) {
-            int minutesPlayed = random.nextInt(61) + 30;
-            int goals = random.nextInt(3);
+            if (player.getSuspensionGames() > 0) {
+                player.setSuspensionGames(player.getSuspensionGames() - 1);  // Reduce suspension games
+                continue;  // Skip point update if suspended
+            }
+
+            // Simulate performance
+            int minutesPlayed = new Random().nextInt(61) + 30;
+            int goals = new Random().nextInt(3);
             player.updatePoints(minutesPlayed, goals);
         }
 
         for (Player player : team2.getPlayers()) {
-            int minutesPlayed = random.nextInt(61) + 30;
-            int goals = random.nextInt(3);
+            if (player.getSuspensionGames() > 0) {
+                player.setSuspensionGames(player.getSuspensionGames() - 1);  // Reduce suspension games
+                continue;  // Skip point update if suspended
+            }
+
+            // Simulate performance
+            int minutesPlayed = new Random().nextInt(61) + 30;
+            int goals = new Random().nextInt(3);
             player.updatePoints(minutesPlayed, goals);
         }
+    }
+
+    private List<Player> selectPlayersForCards(Team team) {
+        int numPlayersForCards = new Random().nextInt(2) + 1;
+        Collections.shuffle(team.getPlayers()); // Shuffle players to select randomly
+        return team.getPlayers().subList(0, Math.min(numPlayersForCards, team.getPlayers().size()));
     }
 }
 
@@ -187,21 +266,22 @@ class League {
     }
 
     public void simulateSeason() {
-        int numMatchesPerTeam = 12;
+        int numMatchesPerTeam = 14;
         List<List<Team>> allMatches = new ArrayList<>();
         for (int i = 0; i < this.teams.size(); i++) {
             for (int j = i + 1; j < this.teams.size(); j++) {
                 Team team1 = this.teams.get(i);
                 Team team2 = this.teams.get(j);
+                // Schedule matches to ensure each team plays 14 matches
                 while (team1.getMatchesPlayed() < numMatchesPerTeam && team2.getMatchesPlayed() < numMatchesPerTeam) {
-                    allMatches.add(new ArrayList<>(List.of(team1, team2)));
+                    allMatches.add(Arrays.asList(team1, team2));
                     team1.setMatchesPlayed(team1.getMatchesPlayed() + 1);
                     team2.setMatchesPlayed(team2.getMatchesPlayed() + 1);
                 }
             }
         }
 
-        Collections.shuffle(allMatches);
+        Collections.shuffle(allMatches);  // Randomize match order
         int month = 0;
         for (List<Team> match : allMatches) {
             if (month >= 12) {
@@ -214,14 +294,20 @@ class League {
 
     public Team getWinner() {
         return this.teams.stream()
-                .max((t1, t2) -> Double.compare(t1.calculateAdditionalScore() + t1.normalizePoints(),
-                        t2.calculateAdditionalScore() + t2.normalizePoints()))
+                .max(Comparator.comparingInt(Team::calculateAdditionalScore)
+                        .thenComparingInt(Team::getTotalMatchPoints))
                 .orElse(null);
+    }
+
+    public List<Team> getMostAndLeastCardsTeams() {
+        this.teams.sort(Comparator.comparingInt(Team::getTotalCardsReceived));
+        return Arrays.asList(this.teams.get(this.teams.size() - 1), this.teams.get(0));
     }
 }
 
 public class Main {
     public static void main(String[] args) {
+        // Create players and teams
         List<Team> teams = new ArrayList<>();
         String[] teamNames = {
             "Manchester United", "Liverpool", "Manchester City", "Arsenal",
@@ -240,18 +326,25 @@ public class Main {
             teams.add(team);
         }
 
+        // Create a league
         League league = new League(teams);
+
+        // Simulate the season
         league.simulateSeason();
 
+        // Get the winner
         Team winner = league.getWinner();
         if (winner != null) {
             System.out.println("The winner is: " + winner.getName() + " with " + winner.calculateAdditionalScore() + " ovr");
             System.out.println("Total points scored: " + winner.getTotalMatchPoints() + " match points.");
             System.out.println("Goals Scored: " + winner.getTotalGoalsScored() + ", Goals Conceded: " + winner.getTotalGoalsConceded());
             System.out.println("Matches Won: " + winner.getMatchesWon() + ", Matches Drawn: " + winner.getMatchesDrawn() + ", Matches Lost: " + winner.getMatchesLost());
-        } else {
-            System.out.println("No teams were available to determine a winner.");
         }
+
+        // Get teams with most and least cards
+        List<Team> cardsTeams = league.getMostAndLeastCardsTeams();
+        //System.out.println("Team with the most cards: " + cardsTeams.get(1).getName() + " with " + cardsTeams.get(1).getTotalCardsReceived() + " cards.");
+        System.out.println("Fairplay Award: " + cardsTeams.get(0).getName() + " with " + cardsTeams.get(0).getTotalCardsReceived() + " cards.");
     }
 }
 //Coded by Arnav Chourey

@@ -8,9 +8,13 @@ class Player:
         self.points = 0
         self.yellow_cards = 0
         self.red_cards = 0
-        self.suspension_games = 0  # Tracks the number of games a player is suspended
+        self.suspended_games = 0
     
     def update_points(self, performance):
+        if self.suspended_games > 0:
+            self.suspended_games -= 1
+            return  # Skip updating points if player is suspended
+        
         if performance.get('minutes_played', 0) >= 60:
             self.points += 2
         else:
@@ -24,20 +28,18 @@ class Player:
             self.points += 5
         elif self.position == 'Forward' and performance.get('goals', 0) > 0:
             self.points += 4
-        
-        # Deduct points for cards
-        self.points -= self.yellow_cards  # -1 point for each yellow card
-        self.points -= (self.red_cards * 2)  # -2 points for each red card
 
-    def receive_card(self, card_type):
-        if card_type == 'yellow':
-            if self.yellow_cards < 2:  # A player can receive a max of 2 yellow cards in one game
-                self.yellow_cards += 1
-            if self.yellow_cards == 2:  # 2 yellow cards lead to a suspension
-                self.suspension_games += 1
-        elif card_type == 'red':
-            self.red_cards += 1
-            self.suspension_games += 2  # 1 red card leads to suspension for 2 games
+    def receive_yellow_card(self):
+        self.yellow_cards += 1
+        self.points -= 1
+        if self.yellow_cards == 3:
+            self.suspended_games = 1
+            self.yellow_cards = 0  # Reset yellow cards after suspension
+
+    def receive_red_card(self):
+        self.red_cards += 1
+        self.points -= 2
+        self.suspended_games = 2  # 2-game suspension for a red card
 
 class Team:
     def __init__(self, name):
@@ -51,7 +53,8 @@ class Team:
         self.total_match_points = 0  # Points from match results
         self.monthly_points = [0] * 12  # Points per month
         self.matches_played = 0  # Tracks the number of matches played
-        self.total_cards_received = 0  # Track total cards received by the team
+        self.total_yellow_cards = 0
+        self.total_red_cards = 0
     
     def add_player(self, player):
         if len(self.players) < 15:
@@ -79,13 +82,19 @@ class Team:
         self.matches_played += 1
     
     def calculate_additional_score(self):
-        K = 3
-        G = 2
-        M = 1
+        K = 1.5
+        G = 1.5
+        M = 0.5
         return (K * self.matches_won) + (G * self.total_goals_scored) - (M * self.total_goals_conceded)
 
     def normalize_points(self):
         return sum(self.monthly_points) / 12
+    
+    def receive_card(self, card_type):
+        if card_type == "yellow":
+            self.total_yellow_cards += 1
+        elif card_type == "red":
+            self.total_red_cards += 1
 
 class Match:
     def __init__(self, teams, month):
@@ -100,31 +109,43 @@ class Match:
         team1.add_match_result(goals_team1, goals_team2, self.month)
         team2.add_match_result(goals_team2, goals_team1, self.month)
         
-        # Select players for card assignment
-        players_for_cards = random.sample(team1.players, k=random.randint(1, 2)) + \
-                           random.sample(team2.players, k=random.randint(1, 2))
+        # Handle pre-defined card recipients
+        self.assign_predefined_cards(team1, team2)
         
-        # Assign cards to selected players at a frequency of 1 card per 4 games
-        if random.random() < (1 / 4):
-            for player in players_for_cards:
-                card_type = random.choice(['yellow', 'red'])
-                player.receive_card(card_type)
-                team1.total_cards_received += 1 if card_type == 'yellow' else 2
-                team2.total_cards_received += 1 if card_type == 'yellow' else 2
+        # Random card assignments to other players
+        self.assign_random_cards(team1, team2)
         
-        # Simulate performance for all players
+        # Simulate performance and update points for all players
         for player in team1.players + team2.players:
-            if player.suspension_games > 0:
-                player.suspension_games -= 1  # Reduce suspension games
-                continue  # Skip point update if suspended
-            
-            # Simulate performance
             performance = {
                 'minutes_played': random.randint(30, 90),
                 'goals': random.randint(0, 2),
                 'assists': random.randint(0, 1)
             }
             player.update_points(performance)
+
+    def assign_predefined_cards(self, team1, team2):
+        for team in [team1, team2]:
+            predefined_players = random.sample(team.players, random.randint(1, 2))
+            for player in predefined_players:
+                self.assign_card_to_player(player, team)
+
+    def assign_random_cards(self, team1, team2):
+        for team in [team1, team2]:
+            if random.random() < 0.25:  # 25% chance of giving a card to any random player
+                player = random.choice(team.players)
+                self.assign_card_to_player(player, team)
+
+    def assign_card_to_player(self, player, team):
+        card_type = random.choice(["yellow", "red"])
+        if card_type == "yellow":
+            if player.yellow_cards < 2:  # Ensure a player can't get more than 2 yellow cards in a game
+                player.receive_yellow_card()
+                team.receive_card("yellow")
+        elif card_type == "red":
+            if player.red_cards == 0:  # Ensure a player can't get both yellow and red in the same game
+                player.receive_red_card()
+                team.receive_card("red")
 
 class League:
     def __init__(self, teams):
@@ -137,7 +158,6 @@ class League:
             for j in range(i + 1, len(self.teams)):
                 team1 = self.teams[i]
                 team2 = self.teams[j]
-                # Schedule matches to ensure each team plays 14 matches
                 while team1.matches_played < num_matches_per_team and team2.matches_played < num_matches_per_team:
                     all_matches.append((team1, team2))
                     team1.matches_played += 1
@@ -153,11 +173,20 @@ class League:
 
     def get_winner(self):
         return max(self.teams, key=lambda team: team.calculate_additional_score() + team.total_match_points)
+    
+    def get_most_least_carded_teams(self):
+        most_yellow_cards_team = max(self.teams, key=lambda team: team.total_yellow_cards)
+        least_yellow_cards_team = min(self.teams, key=lambda team: team.total_yellow_cards)
+        most_red_cards_team = max(self.teams, key=lambda team: team.total_red_cards)
+        least_red_cards_team = min(self.teams, key=lambda team: team.total_red_cards)
+        
+        return most_yellow_cards_team, least_yellow_cards_team, most_red_cards_team, least_red_cards_team
 
-    def get_most_least_cards(self):
-        most_cards_team = max(self.teams, key=lambda team: team.total_cards_received)
-        least_cards_team = min(self.teams, key=lambda team: team.total_cards_received)
-        return most_cards_team, least_cards_team
+    def display_standings(self):
+        print(f"{'Team Name':<20}{'Games Played':<15}{'Won':<6}{'Drawn':<6}{'Lost':<6}{'Goals Scored':<15}{'Goals Conceded':<17}{'Total Points':<13}")
+        print("-" * 105)
+        for team in sorted(self.teams, key=lambda x: (x.total_match_points, x.total_goals_scored), reverse=True):
+            print(f"{team.name:<20}{team.matches_played:<15}{team.matches_won:<6}{team.matches_drawn:<6}{team.matches_lost:<6}{team.total_goals_scored:<15}{team.total_goals_conceded:<17}{team.total_match_points:<13}")
 
 # Main function to simulate the program
 def main():
@@ -177,28 +206,16 @@ def main():
             team.add_player(player)
         teams.append(team)
     
-    # Create a league
+    # Create a league and simulate the season
     league = League(teams)
-    
-    # Simulate the season
     league.simulate_season()
     
-    # Get the winner
-    winner = league.get_winner()
-    if winner:
-        print(f"The winner is: {winner.name} with {winner.calculate_additional_score()} ovr")
-        print(f"Total points scored: {winner.total_match_points} match points.")
-        print(f"Goals Scored: {winner.total_goals_scored}, Goals Conceded: {winner.total_goals_conceded}")
-        print(f"Matches Won: {winner.matches_won}, Matches Drawn: {winner.matches_drawn}, Matches Lost: {winner.matches_lost}")
-    
-    # Get teams with most and least cards
-    most_cards_team, least_cards_team = league.get_most_least_cards()
-    #print(f"Team with the most cards: {most_cards_team.name} with {most_cards_team.total_cards_received} cards.")
-    print(f"Fairplay Award: {least_cards_team.name} with {least_cards_team.total_cards_received} cards.")
+    # Display the league standings
+    league.display_standings()
 
-# Run the simulation
-main()
+if __name__ == "__main__":
+    main()
 
 
-#Hypothetical situation
+
 #Compiled by Arnav Chourey

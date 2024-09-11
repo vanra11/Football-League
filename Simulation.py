@@ -1,4 +1,6 @@
 import random
+import matplotlib.pyplot as plt
+import numpy as np
 
 class Player:
     def __init__(self, name, position, team):
@@ -148,28 +150,50 @@ class Match:
                 team.receive_card("red")
 
 class League:
+
+    def display_standings(self):
+        print(f"{'Team Name':<20}{'Games Played':<15}{'Won':<6}{'Drawn':<6}{'Lost':<6}{'Goals Scored':<15}{'Goals Conceded':<17}{'Total Points':<13}")
+        print("-" * 105)
+        for team in sorted(self.teams, key=lambda x: (x.total_match_points, x.total_goals_scored), reverse=True):
+            print(f"{team.name:<20}{team.matches_played:<15}{team.matches_won:<6}{team.matches_drawn:<6}{team.matches_lost:<6}{team.total_goals_scored:<15}{team.total_goals_conceded:<17}{team.total_match_points:<13}")
+
+        # Create a histogram of points scored by each team
+        team_points = [team.total_match_points for team in self.teams]
+        team_names = [team.name for team in self.teams]
+        plt.hist(team_points, bins=10, edgecolor='black')
+        plt.xlabel('Points')
+        plt.ylabel('Frequency')
+        plt.title('Distribution of Points Scored by Each Team')
+        plt.xticks(range(min(team_points), max(team_points) + 1))
+        plt.yticks(range(max(team_points) + 1))
+        plt.show()
+
+    def __init__(self, teams):
+        self.teams = teams
+    
     def __init__(self, teams):
         self.teams = teams
     
     def simulate_season(self):
-        num_matches_per_team = 14
+        num_matches_per_team = 28  # Updated to 28 matches per team
         all_matches = []
         for i in range(len(self.teams)):
-            for j in range(i + 1, len(self.teams)):
-                team1 = self.teams[i]
-                team2 = self.teams[j]
-                while team1.matches_played < num_matches_per_team and team2.matches_played < num_matches_per_team:
-                    all_matches.append((team1, team2))
-                    team1.matches_played += 1
-                    team2.matches_played += 1
+            for j in range(len(self.teams)):
+                if i != j:  # Ensure a team does not play itself
+                    all_matches.append((self.teams[i], self.teams[j]))
         
         random.shuffle(all_matches)  # Randomize match order
         month = 0
-        for match in all_matches:
-            if month >= 12:
-                month = 0
-            Match(match, month).simulate()
-            month += 1
+        match_count = 0
+        while match_count < len(all_matches):  # Ensure enough matches are played
+            for match in all_matches:
+                if month >= 12:
+                    month = 0
+                Match(match, month).simulate()
+                month += 1
+                match_count += 1
+                if match_count >= num_matches_per_team * len(self.teams) / 2:
+                    break
 
     def get_winner(self):
         return max(self.teams, key=lambda team: team.calculate_additional_score() + team.total_match_points)
@@ -205,6 +229,7 @@ def main():
             player = Player(f"Player {i+1} of {team_name}", position, team_name)
             team.add_player(player)
         teams.append(team)
+
     
     # Create a league and simulate the season
     league = League(teams)
@@ -212,6 +237,73 @@ def main():
     
     # Display the league standings
     league.display_standings()
+
+    teams_sorted = sorted(teams, key=lambda team: team.name)
+    team_names_sorted = [team.name for team in teams_sorted]
+    total_points_sorted = [team.total_match_points for team in teams_sorted]
+    total_goals_sorted = [team.total_goals_scored for team in teams_sorted]
+    
+    x = np.arange(len(team_names_sorted))  # label locations
+    width = 0.15  # width of the bars
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # Create bars for total match points and total goals scored
+    rects1 = ax.bar(x - width/2, total_points_sorted, width, label='Total Points', color='lightgreen')
+    rects2 = ax.bar(x + width/2, total_goals_sorted, width, label='Goals Scored', color='skyblue')
+
+    # Add labels and title
+    ax.set_xlabel('Teams')
+    ax.set_ylabel('Points / Goals')
+    ax.set_title('Total Points and Goals Scored by Team (Alphabetical Order)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(team_names_sorted, rotation=45, ha="right")
+    ax.legend()
+
+    # Display bar values on top of the bars
+    def autolabel(rects):
+        """Attach a text label above each bar."""
+        for rect in rects:
+            height = rect.get_height()
+            ax.annotate(f'{height}',
+                        xy=(rect.get_x() + rect.get_width() / 2, height),
+                        xytext=(0, 3),  # 3 points vertical offset
+                        textcoords="offset points",
+                        ha='center', va='bottom')
+
+    autolabel(rects1)
+    autolabel(rects2)
+
+    plt.tight_layout()
+    plt.show()
+
+    # Generate another grouped bar chart for matches won, lost, and drawn
+    total_wins_sorted = [team.matches_won for team in teams_sorted]
+    total_draws_sorted = [team.matches_drawn for team in teams_sorted]
+    total_losses_sorted = [team.matches_lost for team in teams_sorted]
+
+    fig, ax = plt.subplots(figsize=(12, 6))
+
+    # Create bars for matches won, drawn, and lost
+    rects1 = ax.bar(x - width, total_wins_sorted, width, label='Matches Won', color='PaleTurquoise')  # For Matches Won
+    rects2 = ax.bar(x, total_draws_sorted, width, label='Matches Drawn', color='LightSteelBlue')        # For Matches Drawn
+    rects3 = ax.bar(x + width, total_losses_sorted, width, label='Matches Lost', color='LightSlateGray') #For Matches Lost
+
+    # Add labels and title
+    ax.set_xlabel('Teams')
+    ax.set_ylabel('Matches')
+    ax.set_title('Matches Won, Drawn, and Lost by Team (Alphabetical Order)')
+    ax.set_xticks(x)
+    ax.set_xticklabels(team_names_sorted, rotation=45, ha="right")
+    ax.legend()
+
+    # Display bar values on top of the bars
+    autolabel(rects1)
+    autolabel(rects2)
+    autolabel(rects3)
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     main()
